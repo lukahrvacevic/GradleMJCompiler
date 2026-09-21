@@ -132,7 +132,12 @@ tasks.register<Delete>("cleanGenerated") {
     delete(genDir)
 }
 
+tasks.named("clean") {
+    dependsOn("cleanGenerated")
+}
+
 tasks.register<JavaExec>("runCompiler") {
+    dependsOn("classes")
     group = "application"
     description = "Runs the MicroJava compiler"
 
