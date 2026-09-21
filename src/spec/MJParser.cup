@@ -1,0 +1,517 @@
+package rs.ac.bg.etf.pp1;
+
+import java_cup.runtime.Symbol;
+import rs.ac.bg.etf.pp1.ast.*;
+import rs.ac.bg.etf.pp1.logger.CompilerDiagnostics;
+import rs.ac.bg.etf.pp1.util.Context;
+
+parser code {:
+    private CompilerDiagnostics diagnostics;
+
+    public void report_fatal_error(String message, Object info) {
+        done_parsing();
+        report_error(message, info);
+    }
+
+    public void report(String message, Object info) {
+        StringBuilder string = new StringBuilder("Syntax error");
+        if (info instanceof Symbol) {
+            string.append(" on line ").append(((Symbol) info).left);
+        }
+        string.append(": ").append(message);
+        diagnostics.reportError(string.toString());
+    }
+
+    public void report_error(String message, Object info) {
+    }
+
+    public MJParser(java_cup.runtime.Scanner s, Context context) {
+        this(s);
+        this.diagnostics = CompilerDiagnostics.getInstance(context);
+    }
+:}
+
+// Keywords
+terminal
+    ABSTRACT, BREAK, CLASS, CONST, CONTINUE, ELSE, EXTENDS, FOR, IF,
+    LENGTH, NEW, PRINT, PROGRAM, READ, RETURN, THIS, VOID;
+
+// Sugar
+terminal FIND_ANY, MAP;
+
+// Separators
+terminal ARROW, LPAREN, RPAREN, LBRACE, RBRACE, LBRACK, RBRACK, SEMICOLON, COMMA, DOT;
+
+// Operators
+terminal EQ, GT, LT, QUESTION, COLON, EQEQ, LTEQ, GTEQ, EXCL_EQ, CONJ, DISJ, INCR, DECR, ADD, SUB, MULT, DIV, MOD;
+
+// Literals
+terminal Integer INTEGER_LITERAL, BOOLEAN_LITERAL;
+
+terminal Character CHAR_LITERAL;
+
+terminal NULL_LITERAL;
+
+// Identifiers
+terminal String IDENTIFIER;
+
+// Literals, types and names
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue literal, const_literal;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue MJType;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue name, simple_name, qualified_name;
+
+// Definitions
+non terminal rs.ac.bg.etf.pp1.symbols.Symbol.ProgramSymbol program;
+non terminal static_declarations_opt, static_declarations, static_declaration;
+non terminal static_methods_block, static_method_declarations_opt, static_method_declarations, static_method_declarations_element;
+non terminal modifiers_opt, modifiers, modifier;
+non terminal rs.ac.bg.etf.pp1.symbols.Symbol.ClassSymbol class_delcaration;
+non terminal super_opt, class_body;
+non terminal member_declarations_opt, member_declarations, member_declaration;
+non terminal field_declaration, variable_declarators;
+non terminal rs.ac.bg.etf.pp1.semantic.VariableDeclarator variable_declarator_id;
+non terminal rs.ac.bg.etf.pp1.symbols.Symbol.DataHolderSymbol variable_declarator;
+non terminal methods_block_opt, methods_block;
+non terminal method_declarations_opt, method_declarations, method_declarations_element;
+non terminal rs.ac.bg.etf.pp1.symbols.Symbol.MethodSymbol method_declaration;
+non terminal method_signature, method_body;
+non terminal formal_parameters_opt, formal_parameters;
+non terminal rs.ac.bg.etf.pp1.symbols.Symbol.ParameterSymbol formal_parameter;
+non terminal method_variables_opt, method_variables, method_variable;
+
+// Statements
+non terminal block, block_statements_opt, block_statements, block_statement;
+non terminal statement, statement_no_short_if, statement_without_trailing_substatement;
+non terminal empty_statement;
+non terminal expression_statement;
+non terminal statement_expression;
+non terminal if_then_statement, if_then_else_statement, if_then_else_statement_no_short_if;
+non terminal if_condition;
+non terminal for_statement, for_statement_no_short_if;
+non terminal for_init_opt, for_init, for_update_opt, for_update;
+non terminal statement_expression_list;
+non terminal break_statement;
+non terminal continue_statement;
+non terminal return_statement;
+non terminal map_statement;
+
+// Expressions
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue primary, primary_no_new_array;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue class_instance_creation_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue argument_list_opt, argument_list;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue array_creation_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue field_access;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue method_invocation;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue array_access;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue postfix_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue postincrement_expression, postdecrement_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue unary_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue multiplicative_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue additive_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue relational_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue equality_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue conditional_and_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue conditional_or_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue conditional_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue assignment_expression;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue assignment;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue left_hand_side;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue expression_opt;
+non terminal rs.ac.bg.etf.pp1.semantic.ExpressionValue expression;
+
+start with program;
+
+
+literal ::=
+    (MJConstLiteral) const_literal |
+    (MJNullLiteral) NULL_LITERAL ;
+
+const_literal ::=
+    (MJIntegerLiteral) INTEGER_LITERAL |
+    (MJBooleanLiteral) BOOLEAN_LITERAL |
+    (MJCharacterLiteral) CHAR_LITERAL ;
+
+
+MJType ::= (MJType) IDENTIFIER ;
+
+
+name ::=
+    (MJNameSimple) simple_name |
+    (MJNameQualified) qualified_name ;
+
+simple_name ::= (MJSimpleName) IDENTIFIER ;
+
+qualified_name ::=
+    (MJQualifiedName) name DOT IDENTIFIER |
+    (MJLength) name DOT LENGTH ;
+
+
+program ::= (MJProgram) PROGRAM IDENTIFIER static_declarations_opt static_methods_block ;
+
+
+static_declarations_opt ::=
+    (MJProgramDeclarations) static_declarations |
+    (MJNoProgramDeclarations) /* Nothing */ ;
+
+static_declarations ::=
+    (MJProgramDeclaration) static_declaration |
+    (MJNextProgramDeclarations) static_declarations static_declaration ;
+
+static_declaration ::=
+    (MJProgramVariable) field_declaration |
+    (MJProgramClass) class_delcaration |
+    (MJProgramDeclarationError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Error declaring static fields", error);
+    :} ;
+
+static_methods_block ::= (MJStaticMethodsBlock) LBRACE static_method_declarations_opt RBRACE ;
+
+static_method_declarations_opt ::=
+    (MJStaticMethodsOption) static_method_declarations |
+    (MJNoStaticMethods) /* Nothing */ ;
+
+static_method_declarations ::=
+    (MJStaticMethod) static_method_declarations_element |
+    (MJNextStaticMethod) static_method_declarations static_method_declarations_element ;
+
+static_method_declarations_element ::=
+    (MJProgramMethod) method_declaration |
+    (MJStaticMethodDeclarationError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Method declaration expected.", error);
+    :} ;
+
+
+
+modifiers_opt ::=
+    (MJModifiersOption) modifiers |
+    (MJNoModifiers) /* Nothing */ ;
+
+modifiers ::=
+    (MJFirstModifier) modifier |
+    (MJNextModifier) modifiers modifier ;
+
+modifier ::=
+    (MJConstModifier) CONST |
+    (MJAbstractModifier) ABSTRACT ;
+
+
+class_delcaration ::= (MJClassDeclaration) modifiers_opt CLASS IDENTIFIER super_opt class_body ;
+
+super_opt ::=
+    (MJSuper) EXTENDS MJType |
+    (MJNoSuperClass) /* Nothing */ |
+    (MJSuperError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Error defining super.", error);
+    :} ;
+
+class_body ::= (MJClassBody) LBRACE member_declarations_opt methods_block_opt RBRACE ;
+
+member_declarations_opt ::=
+    (MJMemberDeclarations) member_declarations |
+    (MJNoFieldDeclarations) /* Nothing */ ;
+
+member_declarations ::=
+    (MJMemberDeclaration) member_declaration |
+    (MJNextFieldDeclaration) member_declarations member_declaration ;
+
+member_declaration ::=
+    (MJClassFieldDeclaration) field_declaration |
+    (MJMemberDeclarationError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Member declaration expected", error);
+    :} ;
+
+
+field_declaration ::= (MJFieldDeclaration) modifiers_opt MJType variable_declarators SEMICOLON ;
+
+variable_declarators ::=
+    (MJVariableDeclarator) variable_declarator |
+    (MJNextVariableDeclarator) variable_declarators COMMA variable_declarator ;
+
+variable_declarator ::=
+    (MJVariable) variable_declarator_id |
+    (MJConstant) variable_declarator_id EQ const_literal |
+    (MJVariableDeclarationError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Identifier expected", error);
+    :} ;
+
+variable_declarator_id ::=
+    (MJVariableName) IDENTIFIER |
+    (MJArrayName) IDENTIFIER LBRACK RBRACK ;
+
+
+methods_block_opt ::=
+    (MJMethodsBlockOption) methods_block |
+    (MJNoMethodsBlock) /* Nothing */ ;
+
+methods_block ::= (MJMethodsBlock) LBRACE method_declarations_opt RBRACE ;
+
+method_declarations_opt ::=
+    (MJMethodsOption) method_declarations |
+    (MJNoMethods) /* Nothing */ ;
+
+method_declarations ::=
+    (MJMethod) method_declarations_element |
+    (MJNextMethod) method_declarations method_declarations_element ;
+
+method_declarations_element ::=
+    (MJMethodDeclarationElement) method_declaration |
+    (MJMethodDeclarationError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Method declaration expected.", error);
+    :} ;
+
+method_declaration ::= (MJMethodDeclaration) method_signature method_variables_opt method_body;
+
+method_signature ::=
+    (MJTypeMethodSignature) modifiers_opt MJType IDENTIFIER LPAREN formal_parameters_opt RPAREN |
+    (MJVoidMethodSignature) modifiers_opt VOID IDENTIFIER LPAREN formal_parameters_opt RPAREN ;
+
+method_body ::=
+    (MJMethodBody) block |
+    (MJAbstractMethodBody) SEMICOLON ;
+
+formal_parameters_opt ::=
+    (MJFormalParameters) formal_parameters |
+    (MJNoFormalParameters) /* Nothing */ ;
+
+formal_parameters ::=
+    (MJFormalParameter) formal_parameter |
+    (MJNextFormalParameter) formal_parameters COMMA formal_parameter ;
+
+formal_parameter ::=
+    (MJParameter) MJType variable_declarator_id |
+    (MJFormalParameterError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Error in formal parameter declaration.", error);
+    :} ;
+
+method_variables_opt ::=
+    (MJMethodVariables) method_variables |
+    (MJNoMethodVariables)/* Nothing */ ;
+
+method_variables ::=
+    (MJFirstMethodVariable) method_variable |
+    (MJNextMethodVariable) method_variables method_variable ;
+
+method_variable ::=
+    (MJMethodVariable) field_declaration |
+    (MJMethodVariableError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("`{` expected.", error);
+    :} ;
+
+
+block ::= (MJBlock) LBRACE block_statements_opt RBRACE ;
+
+block_statements_opt ::=
+    (MJBlockStatements) block_statements |
+    (MJNoBlockStatements) /* Nothing */ ;
+
+block_statements ::=
+    (MJFirstBlockStatement) block_statement |
+    (MJNextBlockStatement) block_statements block_statement ;
+
+block_statement ::= (MJBlockStatement) statement ;
+
+statement ::=
+    (MJStatementWithoutTrailingSubstatement) statement_without_trailing_substatement |
+    (MJIfThenStatement) if_then_statement |
+    (MJIfThenElseStatement) if_then_else_statement |
+    (MJForStatement) for_statement ;
+
+statement_no_short_if ::=
+   (MJStatementWithoutTrailingSubstatementNoShortIf) statement_without_trailing_substatement |
+   (MJIfThenElseStatementNoShortIf) if_then_else_statement_no_short_if |
+   (MJForStatementNoShortIf) for_statement_no_short_if ;
+
+statement_without_trailing_substatement ::=
+    (MJStatementBlock) block |
+    (MJEmptyStatement) empty_statement |
+    (MJExpressionStatement) expression_statement |
+    (MJBreakStatement) break_statement |
+    (MJContinueStatement) continue_statement |
+    (MJReturnStatement) return_statement |
+    (MJMapStatement) map_statement |
+    (MJStatementError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Statement expected.", error);
+    :};
+
+empty_statement ::= (MJEmpty) SEMICOLON ;
+
+expression_statement ::= (MJStatementExpression) statement_expression SEMICOLON ;
+
+statement_expression ::=
+    (MJAssignmentStatementExpression) assignment |
+    (MJPostincrementStatementExpression) postincrement_expression |
+    (MJPostdecrementStatementExpression) postdecrement_expression |
+    (MJMethodInvocationStatementExpression) method_invocation |
+    (MJClassInstanceCreationStatementExpression) class_instance_creation_expression ;
+
+if_then_statement ::= (MJIfThen) IF LPAREN if_condition RPAREN statement ;
+
+if_then_else_statement ::= (MJIfThenElse) IF LPAREN if_condition RPAREN statement_no_short_if ELSE statement ;
+
+if_then_else_statement_no_short_if ::= (MJIfThenElseNoShortIf) IF LPAREN if_condition RPAREN statement_no_short_if ELSE statement_no_short_if ;
+
+if_condition ::=
+    (MJIfCondition) expression |
+    (MJIfConditionError) error
+    {:
+        Object error = (Object)((java_cup.runtime.Symbol) CUP$MJParser$stack.elementAt(CUP$MJParser$top-1));
+        parser.report("Expression expected.", error);
+    :} ;
+
+
+for_statement ::= (MJFor) FOR LPAREN for_init_opt SEMICOLON expression_opt SEMICOLON for_update_opt RPAREN statement ;
+
+for_statement_no_short_if ::= (MJForNoShortIf) FOR LPAREN for_init_opt SEMICOLON expression_opt SEMICOLON for_update_opt RPAREN statement_no_short_if ;
+
+for_init_opt ::=
+    (MJForInitOpt) for_init |
+    (MJNoForInit) /* Nothing */ ;
+
+for_init ::= (MJForInit) statement_expression_list ;
+
+for_update_opt ::=
+    (MJForUpdateOpt) for_update |
+    (MJNoForUpdate) /* Nothing */ ;
+
+for_update ::= (MJForUpdate) statement_expression_list ;
+
+statement_expression_list ::=
+    (MJFirstStatementExpression) statement_expression |
+    (MJNextStatementExpression) statement_expression_list COMMA statement_expression ;
+
+break_statement ::= (MJBreak) BREAK SEMICOLON ;
+
+continue_statement ::= (MJContinue) CONTINUE SEMICOLON ;
+
+return_statement ::= (MJReturn) RETURN expression_opt SEMICOLON ;
+
+map_statement ::=
+    (MJMap) left_hand_side EQ name DOT MAP LPAREN IDENTIFIER ARROW expression RPAREN |
+    (MJQualifiedMap) left_hand_side EQ primary DOT MAP LPAREN IDENTIFIER ARROW expression RPAREN ;
+
+
+primary ::=
+    (MJPrimaryNoNewArray) primary_no_new_array |
+    (MJPrimaryClassInstanceCreationExpression) class_instance_creation_expression |
+    (MJPrimaryArrayCreationExpression) array_creation_expression ;
+
+primary_no_new_array ::=
+    (MJPrimaryLiteral) literal |
+    (MJThis) THIS |
+    (MJParenthesisedExpression) LPAREN expression RPAREN |
+    (MJPrimaryFieldAccess) field_access |
+    (MJPrimaryMethodInvocation) method_invocation |
+    (MJPrimaryArrayAccess) array_access ;
+
+class_instance_creation_expression ::= (MJClassInstanceCreation) NEW MJType ;
+
+argument_list_opt ::=
+    (MJArgumentList) argument_list |
+    (MJNoArgumentList) /* Nothing */ ;
+
+argument_list ::=
+    (MJArgument) expression |
+    (MJNextArgument) argument_list COMMA expression ;
+
+array_creation_expression ::= (MJArrayCreation) NEW MJType LBRACK expression RBRACK ;
+
+field_access ::=
+    (MJFieldAccess) primary DOT IDENTIFIER |
+    (MJLengthFieldAccess) primary DOT LENGTH ;
+
+method_invocation ::=
+    (MJMethodInvocation) name LPAREN argument_list_opt RPAREN |
+    (MJFindAny) name DOT FIND_ANY LPAREN expression RPAREN |
+    (MJQualifiedMethodInvocation) primary DOT IDENTIFIER LPAREN argument_list_opt RPAREN |
+    (MJQualifiedFindAny) primary DOT FIND_ANY LPAREN expression RPAREN |
+    (MJRead) READ LPAREN expression RPAREN |
+    (MJPrint) PRINT LPAREN expression RPAREN |
+    (MJPrintConst) PRINT LPAREN expression COMMA INTEGER_LITERAL RPAREN ;
+
+array_access ::=
+    (MJArrayAccess) name LBRACK expression RBRACK |
+    (MJQualifiedArrayAccess) primary_no_new_array LBRACK expression RBRACK ;
+
+postfix_expression ::=
+    (MJPrimaryExpression) primary |
+    (MJNameExpression) name |
+    (MJPostincrementExpression) postincrement_expression |
+    (MJPostdecrementExpression) postdecrement_expression ;
+
+postincrement_expression ::= (MJPostincrement) postfix_expression INCR ;
+
+postdecrement_expression ::= (MJPostdecrement) postfix_expression DECR ;
+
+unary_expression ::=
+    (MJNegation) SUB unary_expression |
+    (MJPostfixExpression) postfix_expression ;
+
+multiplicative_expression ::=
+    (MJUnaryExpression) unary_expression |
+    (MJMultiplication) multiplicative_expression MULT unary_expression |
+    (MJDivision) multiplicative_expression DIV unary_expression |
+    (MJModulo) multiplicative_expression MOD unary_expression ;
+
+additive_expression ::=
+    (MJMultiplicativeExpression) multiplicative_expression |
+    (MJAddition) additive_expression ADD multiplicative_expression |
+    (MJSubtraction) additive_expression SUB multiplicative_expression ;
+
+relational_expression ::=
+    (MJAdditiveExpression) additive_expression |
+    (MJLessThan) relational_expression LT additive_expression |
+    (MJGreaterThan)relational_expression GT additive_expression |
+    (MJLessThanOrEqualTo) relational_expression LTEQ additive_expression |
+    (MJGreaterThanOrEqualTo) relational_expression GTEQ additive_expression ;
+
+equality_expression ::=
+    (MJRelationalExpression) relational_expression |
+    (MJEqual) equality_expression EQEQ relational_expression |
+    (MJNotEqual) equality_expression EXCL_EQ relational_expression ;
+
+conditional_and_expression ::=
+    (MJEqualityExpression) equality_expression |
+    (MJConjunction) conditional_and_expression CONJ equality_expression ;
+
+conditional_or_expression ::=
+    (MJConditionalAndExpression) conditional_and_expression |
+    (MJDisjunction) conditional_or_expression DISJ conditional_and_expression ;
+
+conditional_expression ::=
+    (MJConditionalOrExpression) conditional_or_expression |
+    (MJTernaryOperation) conditional_or_expression QUESTION expression COLON conditional_expression ;
+
+assignment_expression ::=
+    (MJConditionalExpression) conditional_expression |
+    (MJAssignmentExpression) assignment ;
+
+assignment ::= (MJAssignment) left_hand_side EQ assignment_expression ;
+
+left_hand_side ::=
+    (MJLeftHandSideName) name |
+    (MJLeftHandSideFieldAccess) field_access |
+    (MJLeftHandSideArrayAccess) array_access ;
+
+expression_opt ::=
+    (MJExpressionOption) expression |
+    (MJNoExpression) /* Nothing */ ;
+
+expression ::= (MJExpression) assignment_expression ;
